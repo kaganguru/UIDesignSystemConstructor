@@ -1,0 +1,48 @@
+{
+  "name": "design-system-composer",
+  "displayName": "Design System Composer",
+  "description": "A prompt composer for .design-system.json files — structured editor for building unified design system prompts.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "designSystemComposer.editor",
+        "displayName": "Design System Composer",
+        "selector": [
+          {
+            "filenamePattern": "*.design-system.json"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "configuration": {
+      "title": "Design System Composer",
+      "properties": {
+        "designSystemComposer.systemPrompt": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "",
+          "markdownDescription": "The system prompt template with `{{placeholder}}` variables. Leave empty to use the built-in default. Available placeholders: `{{visual_direction_field}}`, `{{component_details}}`"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.0.0"
+  }
+}

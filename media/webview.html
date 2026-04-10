@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      color: var(--vscode-editor-foreground);
+      background: var(--vscode-editor-background);
+      padding: 20px;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+    }
+
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .save-btn {
+      padding: 6px 20px;
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      border-radius: 2px;
+      cursor: pointer;
+      font-size: var(--vscode-font-size);
+      font-family: var(--vscode-font-family);
+    }
+
+    .save-btn:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      height: calc(100vh - 80px);
+    }
+
+    .column {
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: 12px;
+    }
+
+    .section-title:not(:first-child) {
+      margin-top: 24px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      margin-bottom: 4px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    input[type="text"], textarea {
+      display: block;
+      width: 100%;
+      padding: 5px 8px;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, transparent);
+      border-radius: 2px;
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      outline: none;
+      resize: vertical;
+    }
+
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--vscode-focusBorder);
+    }
+
+    textarea { min-height: 80px; }
+
+    .field { margin-bottom: 10px; }
+
+    /* ── Visual Direction rich editor ── */
+    #visualDir {
+      display: block;
+      width: 100%;
+      min-height: 180px;
+      padding: 5px 8px;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, transparent);
+      border-radius: 2px;
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      outline: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+      cursor: text;
+      overflow-y: auto;
+    }
+
+    #visualDir:focus {
+      border-color: var(--vscode-focusBorder);
+    }
+
+    #visualDir.drag-over-vd {
+      outline: 2px dashed var(--vscode-focusBorder);
+      outline-offset: 2px;
+    }
+
+    #visualDir:empty::before {
+      content: attr(data-placeholder);
+      color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+      pointer-events: none;
+    }
+
+    /* ── Reference chip ── */
+    .ref-chip {
+      display: inline-block;
+      background: var(--vscode-badge-background, var(--vscode-button-background));
+      color: var(--vscode-badge-foreground, var(--vscode-button-foreground));
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 0.85em;
+      font-family: var(--vscode-font-family);
+      white-space: nowrap;
+      vertical-align: baseline;
+      user-select: all;
+      cursor: default;
+      line-height: 1.6;
+    }
+
+    /* ── Mention dropdown ── */
+    #mentionDropdown {
+      position: fixed;
+      display: none;
+      background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+      border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+      border-radius: 4px;
+      z-index: 1000;
+      max-height: 200px;
+      overflow-y: auto;
+      min-width: 140px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    .mention-item {
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: var(--vscode-font-size);
+      font-family: var(--vscode-font-family);
+      white-space: nowrap;
+    }
+
+    .mention-item:hover, .mention-item.active {
+      background: var(--vscode-list-hoverBackground);
+      color: var(--vscode-list-hoverForeground, var(--vscode-editor-foreground));
+    }
+
+    /* ── Component cards ── */
+    .component-card {
+      background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+      border: 1px solid var(--vscode-panel-border, transparent);
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .component-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .component-header input {
+      flex: 1;
+      font-weight: 600;
+    }
+
+    .remove-btn {
+      padding: 3px 10px;
+      background: transparent;
+      color: var(--vscode-errorForeground, #f44);
+      border: 1px solid var(--vscode-errorForeground, #f44);
+      border-radius: 2px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: var(--vscode-font-family);
+      white-space: nowrap;
+    }
+
+    .remove-btn:hover {
+      background: var(--vscode-inputValidation-errorBackground, rgba(255,0,0,0.1));
+    }
+
+    .add-btn {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+      color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+      border: none;
+      border-radius: 2px;
+      cursor: pointer;
+      font-size: var(--vscode-font-size);
+      font-family: var(--vscode-font-family);
+    }
+
+    .add-btn--top  { margin-bottom: 12px; }
+    .add-btn--bottom { margin-top: 8px; }
+
+    .add-btn:hover {
+      background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+    }
+
+    .drag-handle {
+      flex: 0 0 auto;
+      cursor: grab;
+      user-select: none;
+      color: var(--vscode-descriptionForeground);
+      font-size: 14px;
+      line-height: 1;
+      padding: 4px 2px;
+      letter-spacing: -2px;
+    }
+
+    .drag-handle:active { cursor: grabbing; }
+
+    .component-card.drag-over {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: 2px;
+    }
+
+    .component-card.dragging { opacity: 0.55; }
+
+    .ref-field textarea {
+      min-height: 100px;
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Design System Composer</h1>
+    <button class="save-btn" id="saveBtn">Save</button>
+  </div>
+
+  <div class="columns">
+    <!-- Left column -->
+    <div class="column">
+      <div class="section-title">Visual Direction</div>
+      <div class="field">
+        <div
+          id="visualDir"
+          contenteditable="true"
+          data-placeholder="Colors, typography, spacing, radius, shadows... Type @ to reference a component."
+        ></div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="column">
+      <div class="section-title">Components</div>
+      <button type="button" class="add-btn add-btn--top" id="addBtnTop">+ Add Component</button>
+      <div id="compList"></div>
+      <button type="button" class="add-btn add-btn--bottom" id="addBtnBottom">+ Add Component</button>
+    </div>
+  </div>
+
+  <div id="mentionDropdown"></div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+    let components = [];
+    let dragFromIndex = -1;
+
+    // ─── Undo / Redo ──────────────────────────────────────────────────────────
+
+    const history = [];
+    let historyIdx = -1;
+    const MAX_HISTORY = 200;
+    let pushTimer = null;
+    let suppressHistory = false;
+
+    function snapshot() {
+      return {
+        visualDirection: getVisualDir(),
+        components: JSON.parse(JSON.stringify(components)),
+      };
+    }
+
+    function restoreSnapshot(snap) {
+      suppressHistory = true;
+      components = JSON.parse(JSON.stringify(snap.components));
+      renderVisualDir(snap.visualDirection);
+      renderComponents();
+      suppressHistory = false;
+    }
+
+    function pushHistory() {
+      if (suppressHistory) return;
+      const snap = snapshot();
+      if (historyIdx >= 0) {
+        const prev = history[historyIdx];
+        if (JSON.stringify(prev) === JSON.stringify(snap)) return;
+      }
+      history.splice(historyIdx + 1);
+      history.push(snap);
+      if (history.length > MAX_HISTORY) history.shift();
+      historyIdx = history.length - 1;
+    }
+
+    function schedulePush() {
+      if (suppressHistory) return;
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(pushHistory, 400);
+    }
+
+    function flushPush() {
+      if (pushTimer !== null) {
+        clearTimeout(pushTimer);
+        pushTimer = null;
+        pushHistory();
+      }
+    }
+
+    function undo() {
+      flushPush();
+      if (historyIdx <= 0) return;
+      historyIdx--;
+      restoreSnapshot(history[historyIdx]);
+    }
+
+    function redo() {
+      if (historyIdx >= history.length - 1) return;
+      historyIdx++;
+      restoreSnapshot(history[historyIdx]);
+    }
+
+    // ─── Naming ───────────────────────────────────────────────────────────────
+    //
+    // Returns the first name in the series proposed → "another X" → "another another X" → …
+    // that is not already taken by a component other than currentIdx.
+    // Pass currentIdx = -1 when adding a brand-new component.
+
+    function setName(proposed, currentIdx) {
+      const others = new Set(
+        components
+          .filter((_, i) => i !== currentIdx)
+          .map(c => c.name)
+      );
+      let name = proposed || 'component';
+      while (others.has(name)) { name = 'another ' + name; }
+      return name;
+    }
+
+    // ─── Visual Direction ─────────────────────────────────────────────────────
+
+    const visualDir = document.getElementById('visualDir');
+
+    function makeChip(name) {
+      const span = document.createElement('span');
+      span.className = 'ref-chip';
+      span.setAttribute('contenteditable', 'false');
+      span.dataset.ref = name;
+      span.textContent = '@' + name;
+      return span;
+    }
+
+    // Serialize the contenteditable div back to a plain string for storage.
+    //   Text node   → raw text  (zero-width spaces stripped)
+    //   .ref-chip   → @[name]
+    //   <br>        → \n  (unless it is only a visual placeholder at the end of a block div)
+    //   <div>/<p>   → block boundary → prepend \n before its content
+    function serializeNode(node) {
+      const children = Array.from(node.childNodes);
+      let out = '';
+      children.forEach((child, idx) => {
+        if (child.nodeType === Node.TEXT_NODE) {
+          out += child.textContent.replace(/\u200B/g, '');
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          if (child.classList.contains('ref-chip')) {
+            out += '@[' + child.dataset.ref + ']';
+          } else if (child.nodeName === 'BR') {
+            const isTrailingPlaceholder =
+              idx === children.length - 1 &&
+              (node.nodeName === 'DIV' || node.nodeName === 'P');
+            if (!isTrailingPlaceholder) { out += '\n'; }
+          } else if (child.nodeName === 'DIV' || child.nodeName === 'P') {
+            if (out.length > 0) { out += '\n'; }
+            out += serializeNode(child);
+          } else {
+            out += serializeNode(child);
+          }
+        }
+      });
+      return out;
+    }
+
+    function getVisualDir() {
+      return serializeNode(visualDir);
+    }
+
+    // Populate the contenteditable div from the stored string.
+    // @[Name] tokens become chip spans; \n becomes <br>; everything else is text.
+    function renderVisualDir(text) {
+      visualDir.innerHTML = '';
+      if (!text) { return; }
+      const parts = text.split(/(@\[[^\]]+\])/g);
+      parts.forEach(part => {
+        const m = part.match(/^@\[([^\]]+)\]$/);
+        if (m) {
+          visualDir.appendChild(makeChip(m[1]));
+        } else {
+          const lines = part.split('\n');
+          lines.forEach((line, i) => {
+            if (i > 0) { visualDir.appendChild(document.createElement('br')); }
+            if (line) { visualDir.appendChild(document.createTextNode(line)); }
+          });
+        }
+      });
+    }
+
+    // Insert a chip (and a zero-width space anchor) at the current caret position.
+    // Falls back to appending if the caret is not inside #visualDir.
+    function insertChipAtCaret(name) {
+      const chip = makeChip(name);
+      const zws  = document.createTextNode('\u200B');
+      const sel  = window.getSelection();
+
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        if (visualDir.contains(range.commonAncestorContainer)) {
+          range.collapse(true);
+          const sc = range.startContainer;
+          const so = range.startOffset;
+
+          if (sc.nodeType === Node.TEXT_NODE) {
+            const after = sc.splitText(so);
+            sc.parentNode.insertBefore(chip, after);
+            sc.parentNode.insertBefore(zws,  after);
+          } else {
+            const ref = sc.childNodes[so] || null;
+            sc.insertBefore(chip, ref);
+            sc.insertBefore(zws,  ref);
+          }
+
+          const r2 = document.createRange();
+          r2.setStart(zws, 1);
+          r2.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(r2);
+          return;
+        }
+      }
+
+      visualDir.appendChild(chip);
+      visualDir.appendChild(zws);
+    }
+
+    // Walk all chips and update any that reference oldName.
+    function syncChips(oldName, newName) {
+      if (!oldName || oldName === newName) { return; }
+      visualDir.querySelectorAll('.ref-chip').forEach(chip => {
+        if (chip.dataset.ref === oldName) {
+          chip.dataset.ref = newName;
+          chip.textContent  = '@' + newName;
+        }
+      });
+    }
+
+    // ─── Mention dropdown ─────────────────────────────────────────────────────
+
+    let mentionActive      = false;
+    let mentionSelectedIdx = 0;
+    const dropdown = document.getElementById('mentionDropdown');
+
+    // If the cursor is in a text node inside #visualDir and there is an @-prefix
+    // with no whitespace, return the context object; otherwise null.
+    function getMentionContext() {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || !sel.getRangeAt(0).collapsed) { return null; }
+      const range     = sel.getRangeAt(0);
+      const container = range.startContainer;
+      if (container.nodeType !== Node.TEXT_NODE)  { return null; }
+      if (!visualDir.contains(container))          { return null; }
+
+      const text = container.textContent.substring(0, range.startOffset);
+      let atIdx = -1;
+      for (let i = text.length - 1; i >= 0; i--) {
+        if (text[i] === '@')       { atIdx = i; break; }
+        if (/\s/.test(text[i]))    { break; }
+      }
+      if (atIdx < 0) { return null; }
+
+      return {
+        query:        text.substring(atIdx + 1),
+        textNode:     container,
+        atIdx,
+        cursorOffset: range.startOffset,
+      };
+    }
+
+    function getFilteredComponents(query) {
+      const q = query.toLowerCase();
+      return components.filter(c => c.name && c.name.toLowerCase().includes(q));
+    }
+
+    function renderDropdownItems(matches) {
+      dropdown.innerHTML = '';
+      matches.forEach((c, i) => {
+        const item = document.createElement('div');
+        item.className = 'mention-item' + (i === mentionSelectedIdx ? ' active' : '');
+        item.textContent = c.name;
+        item.addEventListener('mousedown', ev => {
+          ev.preventDefault(); // keep focus in #visualDir
+          confirmMention(c.name);
+        });
+        dropdown.appendChild(item);
+      });
+    }
+
+    function positionDropdown() {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) { return; }
+      const rects = sel.getRangeAt(0).getClientRects();
+      const rect  = rects.length > 0 ? rects[rects.length - 1] : sel.getRangeAt(0).getBoundingClientRect();
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.top  = (rect.bottom + 2) + 'px';
+    }
+
+    function updateDropdown() {
+      const ctx = getMentionContext();
+      if (!ctx) { hideDropdown(); return; }
+      const matches = getFilteredComponents(ctx.query);
+      if (matches.length === 0) { hideDropdown(); return; }
+
+      mentionActive = true;
+      if (mentionSelectedIdx >= matches.length) { mentionSelectedIdx = 0; }
+      renderDropdownItems(matches);
+      positionDropdown();
+      dropdown.style.display = 'block';
+    }
+
+    function hideDropdown() {
+      mentionActive      = false;
+      mentionSelectedIdx = 0;
+      dropdown.style.display = 'none';
+    }
+
+    // Replace the typed @query text with a chip.
+    function confirmMention(name) {
+      const ctx = getMentionContext();
+      if (!ctx) { hideDropdown(); return; }
+
+      // Manually slice the text node to remove @query without range.insertNode quirks.
+      const textNode   = ctx.textNode;
+      const before     = textNode.textContent.substring(0, ctx.atIdx);
+      const afterText  = textNode.textContent.substring(ctx.cursorOffset);
+      textNode.textContent = before;
+
+      const chip = makeChip(name);
+      const zws  = document.createTextNode('\u200B');
+      const { parentNode, nextSibling } = textNode;
+
+      parentNode.insertBefore(chip, nextSibling);
+      parentNode.insertBefore(zws,  nextSibling);
+      if (afterText) {
+        parentNode.insertBefore(document.createTextNode(afterText), nextSibling);
+      }
+
+      const r = document.createRange();
+      r.setStart(zws, 1);
+      r.collapse(true);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+
+      hideDropdown();
+      pushHistory();
+    }
+
+    // Keyboard navigation inside #visualDir while the dropdown is open.
+    visualDir.addEventListener('keydown', ev => {
+      if (!mentionActive) { return; }
+      const ctx     = getMentionContext();
+      const matches = ctx ? getFilteredComponents(ctx.query) : [];
+      if (matches.length === 0) { hideDropdown(); return; }
+
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        mentionSelectedIdx = (mentionSelectedIdx + 1) % matches.length;
+        renderDropdownItems(matches);
+      } else if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        mentionSelectedIdx = (mentionSelectedIdx - 1 + matches.length) % matches.length;
+        renderDropdownItems(matches);
+      } else if (ev.key === 'Enter' || ev.key === 'Tab') {
+        ev.preventDefault();
+        confirmMention(matches[mentionSelectedIdx].name);
+      } else if (ev.key === 'Escape') {
+        ev.preventDefault();
+        hideDropdown();
+      }
+    });
+
+    visualDir.addEventListener('input', () => { updateDropdown(); schedulePush(); });
+
+    // Small delay on blur so a mousedown on a dropdown item fires first.
+    visualDir.addEventListener('blur', () => setTimeout(hideDropdown, 150));
+
+    // ─── Drag component card → Visual Direction ───────────────────────────────
+
+    function getCaretRangeFromPoint(x, y) {
+      if (document.caretRangeFromPoint) {
+        return document.caretRangeFromPoint(x, y);
+      }
+      if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(x, y);
+        if (pos) {
+          const r = document.createRange();
+          r.setStart(pos.offsetNode, pos.offset);
+          return r;
+        }
+      }
+      return null;
+    }
+
+    visualDir.addEventListener('dragover', ev => {
+      if (dragFromIndex < 0) { return; }
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = 'copy';
+      visualDir.classList.add('drag-over-vd');
+    });
+
+    visualDir.addEventListener('dragleave', ev => {
+      if (!visualDir.contains(ev.relatedTarget)) {
+        visualDir.classList.remove('drag-over-vd');
+      }
+    });
+
+    visualDir.addEventListener('drop', ev => {
+      ev.preventDefault();
+      visualDir.classList.remove('drag-over-vd');
+      if (dragFromIndex < 0) { return; }
+
+      const name      = components[dragFromIndex].name;
+      const dropRange = getCaretRangeFromPoint(ev.clientX, ev.clientY);
+
+      visualDir.focus();
+      if (dropRange && visualDir.contains(dropRange.commonAncestorContainer)) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(dropRange);
+      }
+      insertChipAtCaret(name);
+      pushHistory();
+    });
+
+    // ─── Message from extension ───────────────────────────────────────────────
+
+    window.addEventListener('message', e => {
+      const msg = e.data;
+      if (msg.type === 'update') {
+        renderVisualDir(msg.data.visualDirection || '');
+        components = msg.data.components || [];
+        renderComponents();
+        pushHistory();
+      }
+    });
+
+    // ─── Components ───────────────────────────────────────────────────────────
+
+    function esc(s) {
+      if (!s) { return ''; }
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function moveComponent(from, to) {
+      if (from === to || from < 0 || to < 0) { return; }
+      const copy = components.slice();
+      const item = copy.splice(from, 1)[0];
+      copy.splice(to, 0, item);
+      components = copy;
+    }
+
+    function renderComponents() {
+      const list = document.getElementById('compList');
+      list.innerHTML = '';
+
+      components.forEach((comp, idx) => {
+        const card = document.createElement('div');
+        card.className = 'component-card';
+        card.dataset.idx = idx;
+
+        card.innerHTML = `
+          <div class="component-header">
+            <span class="drag-handle" draggable="true"
+                  title="Drag to reorder or drop into Visual Direction"
+                  data-drag-idx="${idx}">⋮⋮</span>
+            <input type="text" value="${esc(comp.name)}"
+                   placeholder="Component Name"
+                   data-idx="${idx}" data-field="name">
+            <button type="button" class="remove-btn" data-idx="${idx}">Remove</button>
+          </div>
+          <div class="field ref-field">
+            <label>Reference</label>
+            <textarea placeholder="Code, URL, library prompt, or description..."
+                      data-idx="${idx}" data-field="reference">${esc(comp.reference)}</textarea>
+          </div>`;
+
+        list.appendChild(card);
+
+        // Drag handle: reorder cards OR drop onto Visual Direction
+        const handle = card.querySelector('.drag-handle');
+        handle.addEventListener('dragstart', ev => {
+          dragFromIndex = idx;
+          ev.dataTransfer.setData('text/plain', String(idx));
+          ev.dataTransfer.effectAllowed = 'copyMove';
+          card.classList.add('dragging');
+        });
+        handle.addEventListener('dragend', () => {
+          dragFromIndex = -1;
+          card.classList.remove('dragging');
+          list.querySelectorAll('.component-card').forEach(c => c.classList.remove('drag-over'));
+        });
+
+        card.addEventListener('dragover', ev => {
+          if (dragFromIndex < 0 || dragFromIndex === idx) { return; }
+          ev.preventDefault();
+          ev.dataTransfer.dropEffect = 'move';
+          card.classList.add('drag-over');
+        });
+        card.addEventListener('dragleave', ev => {
+          if (!card.contains(ev.relatedTarget)) { card.classList.remove('drag-over'); }
+        });
+        card.addEventListener('drop', ev => {
+          ev.preventDefault();
+          card.classList.remove('drag-over');
+          const from = dragFromIndex;
+          if (from < 0 || from === idx) { return; }
+          flushPush();
+          moveComponent(from, idx);
+          renderComponents();
+          pushHistory();
+        });
+      });
+
+      // Name input: capture name on focus, resolve uniqueness on blur, sync chips
+      list.querySelectorAll('input[data-field="name"]').forEach(el => {
+        el.addEventListener('focus', () => { el._prevName = el.value; });
+        el.addEventListener('input', () => {
+          components[+el.dataset.idx].name = el.value;
+          schedulePush();
+        });
+        el.addEventListener('blur', () => {
+          const i        = +el.dataset.idx;
+          const oldName  = el._prevName || '';
+          const resolved = setName(el.value, i);
+          components[i].name = resolved;
+          el.value           = resolved;
+          syncChips(oldName, resolved);
+          el._prevName = resolved;
+        });
+      });
+
+      // Reference textarea
+      list.querySelectorAll('textarea[data-field]').forEach(el => {
+        el.addEventListener('input', () => {
+          components[+el.dataset.idx][el.dataset.field] = el.value;
+          schedulePush();
+        });
+        el.addEventListener('wheel', ev => {
+          if (document.activeElement !== el) {
+            ev.preventDefault();
+            el.closest('.column').scrollBy({ top: ev.deltaY });
+          }
+        }, { passive: false });
+      });
+
+      list.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          flushPush();
+          components.splice(+btn.dataset.idx, 1);
+          renderComponents();
+          pushHistory();
+        });
+      });
+    }
+
+    function addComponent() {
+      flushPush();
+      const name = setName('component', -1);
+      components.push({ name, reference: '' });
+      renderComponents();
+      pushHistory();
+      const list = document.getElementById('compList');
+      list.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    document.getElementById('addBtnTop').addEventListener('click', addComponent);
+    document.getElementById('addBtnBottom').addEventListener('click', addComponent);
+    document.getElementById('saveBtn').addEventListener('click', save);
+
+    document.addEventListener('keydown', e => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      if (e.key === 'z') {
+        e.preventDefault();
+        e.shiftKey ? redo() : undo();
+      } else if (e.key === 'y') {
+        e.preventDefault();
+        redo();
+      } else if (e.key === 's') {
+        e.preventDefault();
+        save();
+      }
+    }, true);
+
+    function save() {
+      vscode.postMessage({
+        type: 'save',
+        data: {
+          visualDirection: getVisualDir(),
+          components,
+        },
+      });
+    }
+  </script>
+</body>
+</html>
